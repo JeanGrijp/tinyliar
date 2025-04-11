@@ -1,6 +1,9 @@
 package repository
 
 import (
+	"database/sql"
+	"errors"
+
 	"github.com/JeanGrijp/tinyliar/internal/model"
 	"github.com/jmoiron/sqlx"
 )
@@ -26,12 +29,19 @@ func (r *LinkRepository) CreateLink(link *model.Link) error {
 }
 
 func (r *LinkRepository) GetLinkByShortURL(shortURL string) (*model.Link, error) {
-	query := `SELECT * FROM links WHERE short_url = ?`
+	query := `SELECT * FROM links WHERE short_url = $1 LIMIT 1`
+
 	link := &model.Link{}
 	err := r.db.Get(link, query, shortURL)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	return link, nil
 }
 
@@ -42,4 +52,21 @@ func (r *LinkRepository) IncrementClickCount(id int64) error {
 		return err
 	}
 	return nil
+}
+
+func (r *LinkRepository) GetyByOriginalURL(originalURL string) (*model.Link, error) {
+	query := `SELECT * FROM links WHERE original_url = $1 LIMIT 1`
+
+	link := &model.Link{}
+	err := r.db.Get(link, query, originalURL)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return link, nil
 }
