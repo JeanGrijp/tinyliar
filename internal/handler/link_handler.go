@@ -22,20 +22,36 @@ func isValidURL(raw string) bool {
 	return err == nil && (strings.HasPrefix(u.Scheme, "http"))
 }
 
+type CreateLinkRequest struct {
+	OriginalURL string `json:"original_url"`
+}
+
 func (h *LinkHandler) CreateLinkHandler(w http.ResponseWriter, r *http.Request) {
-	originalURL := r.URL.Query().Get("shorten")
+	var originalURL string
+
+	// Primeiro tenta pegar da query string
+	originalURL = r.URL.Query().Get("shorten")
+
+	// Se não tiver na query, tenta pegar do corpo
+	if originalURL == "" && r.Header.Get("Content-Type") == "application/json" {
+		var req CreateLinkRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+			return
+		}
+		originalURL = req.OriginalURL
+	}
+
 	if originalURL == "" {
-		http.Error(w, "Missing 'shorten' parameter", http.StatusBadRequest)
+		http.Error(w, "Missing original URL", http.StatusBadRequest)
 		return
 	}
 
-	// Valida se é uma URL
 	if !isValidURL(originalURL) {
 		http.Error(w, "Invalid URL", http.StatusBadRequest)
 		return
 	}
 
-	// Gera ID curto (e.g., base62)
 	shortID := utils.GenerateShortID()
 
 	link := &model.Link{
@@ -43,7 +59,7 @@ func (h *LinkHandler) CreateLinkHandler(w http.ResponseWriter, r *http.Request) 
 		ShortURL:    shortID,
 		Clicks:      0,
 		OwnerID:     0,
-		ExpiredAt:   "", // a ser implementado
+		ExpiredAt:   "",
 		CreatedAt:   time.Now().Format(time.RFC3339),
 		UpdatedAt:   time.Now().Format(time.RFC3339),
 	}
